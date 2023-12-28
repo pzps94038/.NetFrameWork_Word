@@ -24,9 +24,29 @@ using Aspose.Html.Forms;
 using DocumentFormat.OpenXml;
 using Syncfusion.DocIO.DLS;
 using System.Runtime.InteropServices;
+using Aspose.Html.Rendering.Doc;
 
 namespace Word.Controllers
 {
+    public class Question
+    {
+        public WordElement Title { get; set; } = new WordElement();
+        public WordElement Answer { get; set; } = new WordElement();
+        public WordElement Analyze { get; set; } = new WordElement();
+    }
+
+    public class WordElement 
+    {
+        public List<OpenXmlElement> Elements { get; set; } = new List<OpenXmlElement> ();
+    }
+
+    public enum ElementType
+    {
+        Title,
+        Answer,
+        Analyze
+    }
+
     public class HomeController : Controller
     {
         public ActionResult Index()
@@ -49,22 +69,15 @@ namespace Word.Controllers
         }
 
         [HttpPost]
-        public ActionResult Upload()
+        public void Upload()
         {
             try
             {
                 this.SpireDocConvertHTML(Request.Files[0]);
                 //this.AsposeWordsConvertHTML(Request.Files[0]);
-                
-
-                return Json(new
-                {
-                    path = ""
-                });
             }
             catch (Exception ex)
             {
-                return Json(ex.Message);
             }
 
         }
@@ -96,6 +109,7 @@ namespace Word.Controllers
             // 文件處理
             using (WordprocessingDocument doc = WordprocessingDocument.Open(filePath, true))
             {
+               
             }
             var htmlFileName = fileName.Split('.')[0] + ".html";
             Aspose.Words.Document asposeDoc = new Aspose.Words.Document(filePath);
@@ -135,7 +149,90 @@ namespace Word.Controllers
             // System.IO.File.Copy(origPath, filePath);
             // 文件處理
             using (WordprocessingDocument doc = WordprocessingDocument.Open(filePath, true))
-            { 
+            {
+                var xml = doc.MainDocumentPart.Document.Body.OuterXml;
+                doc.MainDocumentPart.Document.Body.Remove();
+                var tempBody = new DocumentFormat.OpenXml.Wordprocessing.Body(xml);
+                var table = tempBody.Descendants<DocumentFormat.OpenXml.Wordprocessing.Table>().FirstOrDefault();
+                
+                var headerList = table.Elements<DocumentFormat.OpenXml.Wordprocessing.TableRow>().FirstOrDefault()
+                    ?.Elements<DocumentFormat.OpenXml.Wordprocessing.TableCell>().Select(a=> a.InnerText.Trim()).ToList();
+                var qusetionIdx = headerList.FindIndex(a => a.Contains("題目 內容") || a.Contains("題目內容"));
+                // 跳過首行
+                var rows = table.Elements<DocumentFormat.OpenXml.Wordprocessing.TableRow>().Skip(1).Take(1).ToList();
+                Question question = new Question();
+                foreach (var row in rows) 
+                {
+                    var cols = row.Elements<DocumentFormat.OpenXml.Wordprocessing.TableCell>().ToList();
+                    for (int i = 0; i < cols.Count; i++) 
+                    {
+                        var col = cols[i];
+                        if (i == qusetionIdx)
+                        {
+                            question = this.QuestionParse(col);
+                        }
+                        var colXml = col.OuterXml;
+                        var colText = col.InnerText;
+                    }
+                }
+                var newBody = new DocumentFormat.OpenXml.Wordprocessing.Body();
+                var newTable = new DocumentFormat.OpenXml.Wordprocessing.Table();
+                // 创建表格边框样式和样式特征（这里是示例，你可以根据需求修改样式）
+                TableBorders borders = new TableBorders(
+                    new TopBorder() { Val = BorderValues.Single, Size = 12 },
+                    new BottomBorder() { Val = BorderValues.Single, Size = 12 },
+                    new LeftBorder() { Val = BorderValues.Single, Size = 12 },
+                    new RightBorder() { Val = BorderValues.Single, Size = 12 },
+                    new InsideHorizontalBorder() { Val = BorderValues.Single, Size = 12 },
+                    new InsideVerticalBorder() { Val = BorderValues.Single, Size = 12 }
+                );
+
+                DocumentFormat.OpenXml.Wordprocessing.TableStyle tableStyle = new DocumentFormat.OpenXml.Wordprocessing.TableStyle() { Val = "TableGrid" }; // 表格样式
+
+                TableProperties tableProperties = new TableProperties();
+                tableProperties.Append(borders, tableStyle);
+
+                newTable.AppendChild(tableProperties);
+
+                DocumentFormat.OpenXml.Wordprocessing.TableRow headerRow = new DocumentFormat.OpenXml.Wordprocessing.TableRow(
+                    new DocumentFormat.OpenXml.Wordprocessing.TableCell(new Paragraph(new Run(new Text("題目")))),
+                    new DocumentFormat.OpenXml.Wordprocessing.TableCell(new Paragraph(new Run(new Text("答案")))),
+                    new DocumentFormat.OpenXml.Wordprocessing.TableCell(new Paragraph(new Run(new Text("解析"))))
+                );
+                newTable.AppendChild(headerRow);
+
+                var bodyRow = new DocumentFormat.OpenXml.Wordprocessing.TableRow();
+
+                // 標題
+                var titleCell = new DocumentFormat.OpenXml.Wordprocessing.TableCell();
+                foreach (var el in question.Title.Elements)
+                {
+                    var clonedElement = (OpenXmlElement)el.CloneNode(true);
+                    titleCell.Append(clonedElement);
+                }
+                bodyRow.AppendChild(titleCell);
+
+                // 答案
+                var answerCell = new DocumentFormat.OpenXml.Wordprocessing.TableCell();
+                foreach (var el in question.Answer.Elements)
+                {
+                    var clonedElement = (OpenXmlElement)el.CloneNode(true);
+                    answerCell.Append(clonedElement);
+                }
+                bodyRow.AppendChild(answerCell);
+
+                // 解析
+                var analyzeCell = new DocumentFormat.OpenXml.Wordprocessing.TableCell();
+                foreach (var el in question.Analyze.Elements)
+                {
+                    var clonedElement = (OpenXmlElement)el.CloneNode(true);
+                    analyzeCell.Append(clonedElement);
+                }
+                bodyRow.AppendChild(analyzeCell);
+                newTable.AppendChild(bodyRow);
+                newBody.Append(newTable);
+                doc.MainDocumentPart.Document.Append(newBody);
+                doc.Save();
             }
             //Create a Document instance
             Document spireDoc = new Spire.Doc.Document(filePath);
@@ -149,21 +246,63 @@ namespace Word.Controllers
             spireDoc.SaveToFile(Path.Combine(path, htmlFileName), FileFormat.Html);
         }
 
-        public static void GetLasChild(List<OpenXmlElement> openXml) 
+        private Question QuestionParse(DocumentFormat.OpenXml.Wordprocessing.TableCell cell) 
         {
-            foreach (var el in openXml) 
+            var elements = cell.Elements();
+            var question = new Question();
+            var currentElementType = ElementType.Title;
+            foreach (var element in elements) 
             {
-                if (el.HasChildren)
+                string innerText = element.InnerText.Trim();
+
+                if (innerText.Contains("答案") && FindFontColor(element, "0000FF"))
                 {
-                    GetLasChild(el.ChildElements.ToList());
+                    currentElementType = ElementType.Answer;
                 }
-                else 
+                else if (innerText.Contains("解析") && FindFontColor(element, "008000"))
                 {
-                    Console.Write("ao6bk3");
+                    currentElementType = ElementType.Analyze;
+                }
+                // 表格Cell樣式不保留
+                if (element is DocumentFormat.OpenXml.Wordprocessing.TableCellProperties) 
+                {
+                    continue;
+                }
+                OpenXmlElement clonedElement = (OpenXmlElement)element.CloneNode(true);
+                switch (currentElementType)
+                {
+                    case ElementType.Title:
+                        question.Title.Elements.Add(clonedElement);
+                        break;
+                    case ElementType.Answer:
+                        question.Answer.Elements.Add(clonedElement);
+                        break;
+                    case ElementType.Analyze:
+                        question.Analyze.Elements.Add(clonedElement);
+                        break;
                 }
             }
+            return question;
+        }
+
+        private bool FindFontColor(OpenXmlElement element, string color)
+        {
+            if (element is Run run)
+            {
+                var runProperties = run.RunProperties;
+                if (runProperties?.Color?.Val != null && runProperties.Color.Val == color)
+                {
+                    return true;
+                }
+            }
+            foreach (var el in element.ChildElements)
+            {
+                if (FindFontColor(el, color))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
     }
-
-
 }

@@ -42,7 +42,6 @@
 <br>
 <button id="btn" type="submit">上傳</button>
 
-<iframe id="iframe" height="500" src="https://view.officeapps.live.com/op/view.aspx?src=https://firebasestorage.googleapis.com/v0/b/ronweb-87615.appspot.com/o/%E6%B3%A8%E9%9F%B3%E9%A1%8C-%E6%95%B8%E5%AD%B8.docx?alt=media&token=dfbc9eed-5f67-40a4-9c95-386df3276bba"></iframe>
 <script>
     const btn = document.getElementById('btn');
     $('#btn').on('click', () =>
@@ -59,9 +58,7 @@
                 data: formdata,
                 processData: false, // 必須設置為 false，因為要傳送 FormData
                 contentType: false, // 必須設置為 false，因為使用 FormData
-                success: function ({ path }) {
-                    $('#iframe').attr("src", prevPath);
-                },
+                success: function () {},
             })
         }
         
