@@ -53,18 +53,19 @@ namespace Word.Controllers
         }
 
         [HttpPost]
-        public void Upload()
+        public ActionResult Upload()
         {
             try
             {
-                this.MicrosoftOfficeConvertHTML(Request.Files[0]);
+                (string htmlUrl, string wordUrl) = this.MicrosoftOfficeConvertHTML(Request.Files[0]);
                 // this.SpireDocConvertHTML(Request.Files[0]);
                 // this.AsposeWordsConvertHTML(Request.Files[0]);
+                return Json(new { Success = true, HtmlUrl = htmlUrl, WordUrl = wordUrl });
             }
             catch (Exception ex)
             {
+                return Json(new { Success = false });
             }
-
         }
 
         /// <summary>
@@ -231,7 +232,7 @@ namespace Word.Controllers
         //    spireDoc.SaveToFile(Path.Combine(path, htmlFileName), FileFormat.Html);
         //}
 
-        private void MicrosoftOfficeConvertHTML(HttpPostedFileBase file) 
+        private (string, string) MicrosoftOfficeConvertHTML(HttpPostedFileBase file) 
         {
             string path = Server.MapPath("~/FileUpload/MicrosoftOffice");
             var fileName = file.FileName;
@@ -369,6 +370,9 @@ namespace Word.Controllers
             string fontPath = Server.MapPath("~/Font");
             var fontFullPath = Path.Combine(fontPath, fontFileName);
             HtmlAddFont(htmlPath, "ㄅ字嗨注音標楷 Regular", fontFullPath);
+            var htmlUrlPath = Path.Combine("/FileUpload/MicrosoftOffice", htmlFileName);
+            var wordUrlPath = Path.Combine("/FileUpload/MicrosoftOffice", fileName);
+            return (htmlUrlPath, wordUrlPath);
         }
 
         private Question QuestionParse(DocumentFormat.OpenXml.Wordprocessing.TableCell cell) 
