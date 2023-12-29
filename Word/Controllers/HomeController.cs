@@ -255,6 +255,7 @@ namespace Word.Controllers
             using (WordprocessingDocument doc = WordprocessingDocument.Open(filePath, true))
             {
                 var xml = doc.MainDocumentPart.Document.Body.OuterXml;
+                StyleDefinitionsPart stylePart = doc.MainDocumentPart.StyleDefinitionsPart;
                 doc.MainDocumentPart.Document.Body.Remove();
                 var tempBody = new DocumentFormat.OpenXml.Wordprocessing.Body(xml);
                 var table = tempBody.Descendants<DocumentFormat.OpenXml.Wordprocessing.Table>().FirstOrDefault();
@@ -291,7 +292,7 @@ namespace Word.Controllers
                 headerRow.AppendChild(new DocumentFormat.OpenXml.Wordprocessing.TableCell(new DocumentFormat.OpenXml.Wordprocessing.Paragraph(new Run(new Text("答案")))));
                 headerRow.AppendChild(new DocumentFormat.OpenXml.Wordprocessing.TableCell(new DocumentFormat.OpenXml.Wordprocessing.Paragraph(new Run(new Text("解析")))));
                 newTable.AppendChild(headerRow);
-
+                
                 foreach (var row in rows)
                 {
                     var cols = row.Elements<DocumentFormat.OpenXml.Wordprocessing.TableCell>().ToList();
@@ -302,7 +303,7 @@ namespace Word.Controllers
                         var col = cols[i];
                         if (i == qusetionIdx)
                         {
-                            question = this.QuestionParse(col);
+                            question = this.QuestionParse(col, stylePart);
                         }
                         else 
                         {
@@ -375,7 +376,7 @@ namespace Word.Controllers
             return (htmlUrlPath, wordUrlPath);
         }
 
-        private Question QuestionParse(DocumentFormat.OpenXml.Wordprocessing.TableCell cell) 
+        private Question QuestionParse(DocumentFormat.OpenXml.Wordprocessing.TableCell cell, StyleDefinitionsPart stylePart) 
         {
             var elements = cell.Elements();
             var question = new Question();
@@ -386,7 +387,7 @@ namespace Word.Controllers
                 string innerText = element.InnerText.Trim();
                 if (innerText.Contains("答案"))
                 {
-                    string fontColor = FindFontColor(element, color);
+                    string fontColor = FindFontColor(element, color, stylePart);
                     if (fontColor != color) 
                     {
                         currentElementType = ElementType.Answer;
@@ -395,7 +396,7 @@ namespace Word.Controllers
                 }
                 else if (innerText.Contains("解析"))
                 {
-                    string fontColor = FindFontColor(element, color);
+                    string fontColor = FindFontColor(element, color, stylePart);
                     if (fontColor != color)
                     {
                         currentElementType = ElementType.Analyze;
@@ -424,19 +425,30 @@ namespace Word.Controllers
             return question;
         }
 
-        private string FindFontColor(OpenXmlElement element, string color)
+        private string FindFontColor(OpenXmlElement element, string color, StyleDefinitionsPart stylePart)
         {
             if (element is Run run)
             {
                 var runProperties = run.RunProperties;
+                var styleId = run.RunProperties?.RunStyle?.Val;
                 if (runProperties?.Color?.Val != color)
                 {
                     return runProperties?.Color?.Val;
                 }
+                // 如果抓樣式表以設定的顏色，而不是設置run的
+                else if (styleId != null) 
+                {
+                    var runStyle = stylePart.Styles.Elements<DocumentFormat.OpenXml.Wordprocessing.Style>().FirstOrDefault(s => s.StyleId == styleId);
+                    string colorValue = runStyle?.StyleRunProperties?.Color?.Val;
+                    if (colorValue != color) 
+                    {
+                        return colorValue;
+                    }
+                }
             }
             foreach (var el in element.ChildElements)
             {
-                var elColor = FindFontColor(el, color);
+                var elColor = FindFontColor(el, color, stylePart);
                 if (elColor != color) 
                 {
                     return elColor;
