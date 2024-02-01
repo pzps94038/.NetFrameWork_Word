@@ -1,0 +1,43 @@
+﻿@{
+    ViewData["Title"] = "Home Page";
+}
+
+<main>
+    <h2>上傳檔案解析</h2>
+    <input id="file" type="file" class="chz-file-input my-3" data-attach="from" size="30" multiple accept=".docx,.xlsx,.xlsm" />
+    <br>
+    <button id="btn" class="btn btn-primary" type="submit">上傳</button>
+    <iframe scrolling="no"></iframe>
+</main>
+
+<script>
+    $(document).ready(function () {
+        $('iframe').on('load', function () {
+            $(this).height($(this).contents().find('body').height() + 20);
+        });
+    });
+    const btn = document.getElementById('btn');
+    $('#btn').on('click', () =>
+    {
+        const fileInput = document.getElementById('file');
+        if (fileInput.files.length)
+        {
+            var formdata = new FormData();
+            for (let i = 0; i < fileInput.files.length; i++) {
+                formdata.append('files', fileInput.files[i]); // 注意这里的 'files'
+            }
+            $.ajax('/Home/Upload', {
+                type: 'POST',
+                data: formdata,
+                processData: false, // 必須設置為 false，因為要傳送 FormData
+                contentType: false, // 必須設置為 false，因為使用 FormData
+                success: function ({ success, htmlUrl, wordUrl }) {
+                    if (success) {
+                        $('iframe').attr("src", htmlUrl);
+                    }
+                },
+            })
+        }
+
+    })
+</script>
