@@ -43,14 +43,14 @@ namespace Core.Controllers
         }
 
         [HttpPost]
-        public IActionResult Upload(List<IFormFile> files)
+        public async Task<IActionResult> Upload(List<IFormFile> files)
         {
             try
             {
                 if (files != null && files.Count > 0)
                 {
                     string webRootPath = _hostingEnvironment.WebRootPath;
-                    (string htmlUrl, string wordUrl) = MicrosoftOfficeConvertHTML(webRootPath, files[0].FileName, files[0].OpenReadStream());
+                    (string htmlUrl, string wordUrl) = await MicrosoftOfficeConvertHTML(webRootPath, files[0].FileName, files[0].OpenReadStream());
                     return Json(new { Success = true, HtmlUrl = htmlUrl, WordUrl = wordUrl });
                 }
                 return Json(new { Success = false });
@@ -61,7 +61,7 @@ namespace Core.Controllers
             }
         }
 
-        public (string, string) MicrosoftOfficeConvertHTML(string rootPath, string fileName, Stream InputStream)
+        public async Task<(string, string)> MicrosoftOfficeConvertHTML(string rootPath, string fileName, Stream InputStream)
         {
             string path = rootPath + "/FileUpload/MicrosoftOffice";
 
@@ -203,7 +203,7 @@ namespace Core.Controllers
             var fontFileName = "BpmfZihiKaiStd-Regular.ttf";
             string fontPath = rootPath + "/Font";
             var fontFullPath = Path.Combine(fontPath, fontFileName);
-            // await HtmlAddFontAsync(htmlPath, "ㄅ字嗨注音標楷 Regular", fontFullPath);
+            await HtmlAddFontAsync(htmlPath, "ㄅ字嗨注音標楷 Regular", fontFullPath);
             var htmlUrlPath = Path.Combine("/FileUpload/MicrosoftOffice", htmlFileName);
             var wordUrlPath = Path.Combine("/FileUpload/MicrosoftOffice", fileName);
             return (htmlUrlPath, wordUrlPath);
