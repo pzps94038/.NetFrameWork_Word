@@ -1,12 +1,22 @@
 ﻿@{
     ViewData["Title"] = "Home Page";
 }
-
+<style>
+    iframe {
+        display: block;
+        width: 100%;
+        min-height: 80%;
+        border: none; /* 可以去掉 iframe 的边框 */
+    }
+    ::-webkit-scrollbar {
+        display: none;
+    }
+</style>
 <main>
     <h2>上傳檔案解析</h2>
     <input id="file" type="file" class="chz-file-input my-3" data-attach="from" size="30" multiple accept=".docx,.xlsx,.xlsm" />
     <br>
-    <button id="btn" class="btn btn-primary" type="submit">上傳</button>
+    <button id="btn" class="btn btn-primary" type="button">上傳</button>
     <iframe scrolling="no"></iframe>
 </main>
 
@@ -28,6 +38,7 @@
             }
             $.ajax('/Home/Upload', {
                 type: 'POST',
+                timeout: 60000,
                 data: formdata,
                 processData: false, // 必須設置為 false，因為要傳送 FormData
                 contentType: false, // 必須設置為 false，因為使用 FormData
