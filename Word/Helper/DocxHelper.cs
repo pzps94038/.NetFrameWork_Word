@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Web;
 using System.Web.Mvc;
@@ -161,13 +162,18 @@ namespace Word.Helper
             }
             var wordApp = new Microsoft.Office.Interop.Word.Application();
             var htmlFileName = fileName.Split('.')[0] + ".html";
-            Microsoft.Office.Interop.Word.Document officeDoc = wordApp.Documents.Open(filePath, Encoding.UTF8);
+            Microsoft.Office.Interop.Word.Document officeDoc = wordApp.Documents.Open(filePath);
             var htmlPath = Path.Combine(path, htmlFileName);
-            officeDoc.SaveAs2(htmlPath, WdSaveFormat.wdFormatFilteredHTML, Encoding.UTF8);
+            officeDoc.SaveAs2(htmlPath, WdSaveFormat.wdFormatFilteredHTML);
             // 關閉 Word 文件
             officeDoc.Close();
             // 關閉 Word 應用程式
+            wordApp.NormalTemplate.Saved = true;
             wordApp.Quit();
+            Marshal.ReleaseComObject(officeDoc);
+            Marshal.ReleaseComObject(wordApp);
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
             var fontFileName = "BpmfZihiKaiStd-Regular.ttf";
             string fontPath = rootPath + "/Font";
             var fontFullPath = Path.Combine(fontPath, fontFileName);
@@ -264,7 +270,7 @@ namespace Word.Helper
             HtmlDocument htmlDoc = new HtmlDocument();
 
             // 載入 HTML 檔案
-            htmlDoc.Load(path, Encoding.UTF8);
+            htmlDoc.Load(path);
             // 取得 <html> 標籤，如果不存在，則創建一個並添加 <head> 標籤
             HtmlNode htmlNode = htmlDoc.DocumentNode.SelectSingleNode("//html");
             var hasHtmlNode = htmlNode != null;
